@@ -24,8 +24,8 @@ LAGS_LIST        = [15, 30, 60, 90]
 BEST_LAG         = 30
 N_STEPS_FORECAST = 7
 N_FEATURES       = 6      # número de columnas en cols_ordered
-SCALE_CORRECTION = np.sqrt(1440)   # sqrt(1440*365) / sqrt(365) = sqrt(1440)
-                                    # corrige la escala del target al estándar
+SCALE_CORRECTION = 1.0   
+                                    
 
 # ── Recursos globales (cargados una sola vez al iniciar) ──────────────────────
 _models   = {}   # { lag: keras_model }
