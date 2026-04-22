@@ -1,11 +1,10 @@
+# .github/workflows/ci.yml
 name: CI Pipeline
-
 on: [push, pull_request]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -19,11 +18,23 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest flake8
+
+      - name: Cache models
+        id: cache-models
+        uses: actions/cache@v4
+        with:
+          path: app/models
+          key: models-v1.0-models
+
       - name: Download Models
+        if: steps.cache-models.outputs.cache-hit != 'true'
         run: python download_models.py
+
       - name: Run Linter
         run: flake8 app/ --ignore=E501,W503,E221,E241,E251,E302,E116,F401,F824,W292,W391 || true
+
       - name: Add project to PYTHONPATH
         run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
+
       - name: Run Tests
         run: pytest tests/
