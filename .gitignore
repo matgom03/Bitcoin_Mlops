@@ -1,0 +1,15 @@
+# Data
+data/
+datos/
+*.csv
+
+# Models
+app/models/*.pkl
+app/models/*.keras
+
+# Python
+__pycache__/
+*.pyc
+
+# Notebooks
+.ipynb_checkpoints/
