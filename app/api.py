@@ -24,7 +24,7 @@ LAGS_LIST        = [15, 30, 60, 90]
 BEST_LAG         = 30
 N_STEPS_FORECAST = 7
 N_FEATURES       = 6      # número de columnas en cols_ordered
-SCALE_CORRECTION = 1.0   
+SCALE_CORRECTION = np.sqrt(1440) 
                                     
 
 # ── Recursos globales (cargados una sola vez al iniciar) ──────────────────────
