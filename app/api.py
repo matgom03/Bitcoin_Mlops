@@ -158,7 +158,7 @@ def predict(data: PredictRequest):
         y_out = (y_inv * SCALE_CORRECTION).flatten().tolist()
 
         # Clip de seguridad: volatilidad no puede ser negativa
-        y_out = [max(0.0, round(v, 6)) for v in y_out]
+        y_out = [max(0.0, round(float(v), 6)) for v in y_out]
 
     except Exception as e:
         raise HTTPException(
@@ -170,15 +170,15 @@ def predict(data: PredictRequest):
     arch_info = _meta.get("best_arch_per_lag", {}).get(lag, {})
 
     return PredictResponse(
-        prediction  = y_out,
-        lag_minutes = lag,
-        horizons    = [f"h={h} min" for h in range(1, N_STEPS_FORECAST + 1)],
-        model_info  = {
-            "arch":        str(arch_info.get("arch", "N/A")),
-            "dropout":     str(arch_info.get("dmask", "N/A")),
-            "rmse_test":   _meta.get("rmse_test_avg_per_lag", {}).get(lag, "N/A"),
-            "lag_minutes": lag,
-        },
+    prediction  = y_out,
+    lag_minutes = int(lag),                    # int() explícito
+    horizons    = [f"h={h} min" for h in range(1, N_STEPS_FORECAST + 1)],
+    model_info  = {
+        "arch":        str(arch_info.get("arch", "N/A")),
+        "dropout":     str(arch_info.get("dmask", "N/A")),
+        "rmse_test":   float(_meta.get("rmse_test_avg_per_lag", {}).get(lag, 0)),  # float() explícito
+        "lag_minutes": int(lag),               # int() explícito
+    },
     )
 
 
