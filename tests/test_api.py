@@ -3,8 +3,6 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from app.api import app
-
-LAG = 30
 N_FEATURES = 6
 N_STEPS_FORECAST = 7
 
@@ -16,22 +14,30 @@ def client():
         yield c
 
 
+# Reemplaza la generación de lags en test_predict_endpoint
 def test_predict_endpoint(client):
-    """Test endpoint /predict"""
-    lags = np.random.rand(LAG * N_FEATURES).tolist()
+    """Test con valores en escala y orden correctos"""
+    lag = 15
+    lags = []
+    for _ in range(lag):
+        lags.extend([
+            0.52,      # Volatility_daily
+           -0.65,      # log_Volatility_daily
+            0.00031,   # log_ret
+            0.00142,   # hl_range
+           12.847,     # log_volume
+           -0.00018,   # ret_lag1min
+        ])
+
     response = client.post(
         "/predict",
-        json={
-            "lags": lags,
-            "lag_minutes": LAG
-        }
+        json={"lags": lags, "lag_minutes": lag}
     )
     assert response.status_code == 200
-    data = response.json()
-    assert "prediction" in data
-    assert isinstance(data["prediction"], list)
-    assert len(data["prediction"]) == N_STEPS_FORECAST
-
+    body = response.json()
+    assert len(body["prediction"]) == 7
+    assert all(isinstance(v, float) for v in body["prediction"])
+    assert all(v >= 0 for v in body["prediction"])
 
 def test_predict_invalid_length(client):
     """Test input inválido"""
@@ -40,7 +46,7 @@ def test_predict_invalid_length(client):
         "/predict",
         json={
             "lags": lags,
-            "lag_minutes": 30
+            "lag_minutes": 15
         }
     )
     assert response.status_code == 422

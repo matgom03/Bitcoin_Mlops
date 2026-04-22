@@ -17,53 +17,77 @@ datos BTC (1min) → EDA → features → CV → MLP → API FastAPI → Docker
 | GET | `/example` | Ejemplo de request |
 | POST | `/predict` | Predicción de volatilidad |
 
-## Uso rápido
+## Uso
 
-### Con Docker
+### Levantar el servidor
 
 ```bash
+# Sin Docker
+uvicorn app.api:app --port 8000
+
+# Con Docker
 docker build -t btc-predictor .
 docker run -p 8000:8000 btc-predictor
 ```
 
-### Sin Docker
+### Documentación interactiva
 
-```bash
-pip install -r requirements.txt
-python download_models.py
-uvicorn app.api:app --reload
+```
+http://localhost:8000/docs
 ```
 
-### Ejemplo de predicción
+### Ejemplo de predicción (lag=15, valores típicos reales)
 
 ```bash
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{
     "lag_minutes": 15,
-    "lags": [0.025, 0.0003, -3.68, 0.0012, 12.5, 0.0002,
-             0.025, -0.0001, -3.68, 0.001, 12.4, 0.0003,
-             0.026, 0.0005, -3.64, 0.0015, 12.6, -0.0001,
-             0.025, 0.0002, -3.68, 0.0011, 12.3, 0.0005,
-             0.025, -0.0003, -3.68, 0.0009, 12.5, 0.0002,
-             0.026, 0.0004, -3.64, 0.0013, 12.7, -0.0003,
-             0.025, 0.0001, -3.68, 0.001, 12.4, 0.0004,
-             0.025, -0.0002, -3.68, 0.0012, 12.5, 0.0001,
-             0.026, 0.0003, -3.64, 0.0014, 12.6, -0.0002,
-             0.025, 0.0, -3.68, 0.0011, 12.3, 0.0003,
-             0.025, -0.0004, -3.68, 0.001, 12.5, 0.0,
-             0.026, 0.0005, -3.64, 0.0016, 12.7, -0.0004,
-             0.025, 0.0002, -3.68, 0.0012, 12.4, 0.0005,
-             0.025, -0.0001, -3.68, 0.0009, 12.5, 0.0002,
-             0.026, 0.0003, -3.64, 0.0013, 12.6, -0.0001]
+    "lags": [
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018,
+      0.52, -0.65, 0.00031, 0.00142, 12.847, -0.00018
+    ]
   }'
 ```
+
+### Estructura del input
+
+El campo `lags` repite estas 6 features por cada minuto de historia, en este orden:
+
+| Feature | Rango típico | Descripción |
+|---|---|---|
+| `Volatility_daily` | [0.30, 1.20] | Volatilidad anualizada sqrt(1440×365) |
+| `log_Volatility_daily` | [-1.05, -0.22] | Log de la volatilidad diaria |
+| `log_ret` | [-0.005, 0.005] | Log-retorno del minuto |
+| `hl_range` | [0.0005, 0.003] | Rango High-Low normalizado |
+| `log_volume` | [11.5, 13.5] | Log del volumen |
+| `ret_lag1min` | [-0.005, 0.005] | Retorno del minuto anterior |
+
+| `lag_minutes` | Total valores |
+|---|---|
+| 15 | 90 |
+| 30 | 180 |
+| 60 | 360 |
+| 90 | 540 |
 
 ### Respuesta esperada
 
 ```json
-json{
-  "prediction": [0.12, 0.11, 0.10, 0.09, 0.08, 0.07, 0.06],
+{
+  "prediction": [0.58, 0.57, 0.56, 0.55, 0.54, 0.53, 0.52],
   "lag_minutes": 15,
   "horizons": ["h=1 min", "h=2 min", "h=3 min", "h=4 min", "h=5 min", "h=6 min", "h=7 min"],
   "model_info": {
@@ -74,6 +98,8 @@ json{
   }
 }
 ```
+> También puedes consultar el ejemplo completo con rangos típicos en:
+> `GET http://localhost:8000/example`
 
 ## Input
 

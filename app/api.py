@@ -24,8 +24,15 @@ LAGS_LIST        = [15, 30, 60, 90]
 BEST_LAG         = 30
 N_STEPS_FORECAST = 7
 N_FEATURES       = 6      # número de columnas en cols_ordered
-SCALE_CORRECTION = np.sqrt(1440) 
-                                    
+SCALE_CORRECTION = 1.0
+COLS_ORDERED = [
+    "Volatility_daily",
+    "log_Volatility_daily",
+    "log_ret",
+    "hl_range",
+    "log_volume",
+    "ret_lag1min",
+]                                  
 
 # ── Recursos globales (cargados una sola vez al iniciar) ──────────────────────
 _models   = {}   # { lag: keras_model }
@@ -150,9 +157,15 @@ def predict(data: PredictRequest):
 
     # ── Predicción ────────────────────────────────────────────────────────────
     try:
-        y_sc  = model.predict(X_t, verbose=0)                      # (1, 7) escalado
-        y_inv = scaler_y.inverse_transform(y_sc.reshape(-1, 1))     # des-escalar
+        y_sc  = model.predict(X_t, verbose=0)        # (1, 7) escalado
+        print(f"X_raw rango    : [{X_raw.min():.4f}, {X_raw.max():.4f}]")
+        print(f"X_sc rango     : [{X_sc.min():.4f}, {X_sc.max():.4f}]")  # debe ser ≈ [-3, 3]
+        print(f"y_sc (modelo)  : {y_sc.flatten()}")                        # debe ser ≈ [-2, 2]
+        print(f"scaler_y mean_ : {scaler_y.mean_}")                        # media del target
+        print(f"scaler_y scale_: {scaler_y.scale_}")                       # std del target
+        y_inv = scaler_y.inverse_transform(y_sc.reshape(-1, 1)) # des-escalar
         y_inv = y_inv.reshape(1, N_STEPS_FORECAST)
+        print(f"y_inv          : {y_inv.flatten()}") 
 
         # Aplicar corrección de escala: sqrt(365) → sqrt(1440*365)
         y_out = (y_inv * SCALE_CORRECTION).flatten().tolist()
@@ -185,51 +198,40 @@ def predict(data: PredictRequest):
 # ── Ejemplo de uso (para documentación automática de FastAPI) ─────────────────
 @app.get("/example")
 def example():
-    """
-    Devuelve un ejemplo de request para el endpoint /predict.
-    Los valores son ficticios pero con la estructura correcta.
-    """
     lag = 15
-    # 15 pasos × 6 features = 90 valores
-    example_lags = [
-        # [Volatility_daily, log_ret, log_Volatility_daily, hl_range, log_volume, ret_lag1min]
-        0.025, 0.0003, -3.68, 0.0012, 12.5, 0.0002,   # t-14
-        0.025, -0.0001, -3.68, 0.0010, 12.4, 0.0003,  # t-13
-        0.026, 0.0005, -3.64, 0.0015, 12.6, -0.0001,  # t-12
-        0.025, 0.0002, -3.68, 0.0011, 12.3, 0.0005,   # t-11
-        0.025, -0.0003, -3.68, 0.0009, 12.5, 0.0002,  # t-10
-        0.026, 0.0004, -3.64, 0.0013, 12.7, -0.0003,  # t-9
-        0.025, 0.0001, -3.68, 0.0010, 12.4, 0.0004,   # t-8
-        0.025, -0.0002, -3.68, 0.0012, 12.5, 0.0001,  # t-7
-        0.026, 0.0003, -3.64, 0.0014, 12.6, -0.0002,  # t-6
-        0.025, 0.0000, -3.68, 0.0011, 12.3, 0.0003,   # t-5
-        0.025, -0.0004, -3.68, 0.0010, 12.5, 0.0000,  # t-4
-        0.026, 0.0005, -3.64, 0.0016, 12.7, -0.0004,  # t-3
-        0.025, 0.0002, -3.68, 0.0012, 12.4, 0.0005,   # t-2
-        0.025, -0.0001, -3.68, 0.0009, 12.5, 0.0002,  # t-1
-        0.026, 0.0003, -3.64, 0.0013, 12.6, -0.0001,  # t
-    ]
+    example_lags = []
+    for _ in range(lag):
+        example_lags.extend([
+            0.52,      # Volatility_daily  [0.30, 1.20]
+           -0.65,      # log_Volatility_daily [-1.05, -0.22]
+            0.00031,   # log_ret
+            0.00142,   # hl_range
+           12.847,     # log_volume
+           -0.00018,   # ret_lag1min
+        ])
 
     return {
-        "endpoint":    "POST /predict",
+        "endpoint":      "POST /predict",
+        "cols_ordered":  COLS_ORDERED,
+        "rangos_tipicos": {
+            "Volatility_daily":     "[0.30, 1.20] — volatilidad anualizada sqrt(1440×365)",
+            "log_Volatility_daily": "[-1.05, -0.22]",
+            "log_ret":              "[-0.005, 0.005]",
+            "hl_range":             "[0.0005, 0.003]",
+            "log_volume":           "[11.5, 13.5]",
+            "ret_lag1min":          "[-0.005, 0.005]",
+        },
         "request_body": {
             "lags":        example_lags,
             "lag_minutes": lag,
         },
         "expected_response": {
-            "prediction":  [0.12, 0.11, 0.10, 0.09, 0.08, 0.07, 0.06],
+            "prediction":  [0.58, 0.57, 0.56, 0.55, 0.54, 0.53, 0.52],
             "lag_minutes": lag,
             "horizons":    [f"h={h} min" for h in range(1, 8)],
-            "model_info":  {
-                "arch":      "(32, 64)",
-                "dropout":   "(False, False)",
-                "rmse_test": 0.003059,
-                "lag_minutes": lag,
-            },
         },
         "note": (
-            "Los valores de 'lags' deben estar en el orden de cols_ordered: "
-            "[Volatility_daily, log_ret, log_Volatility_daily, "
-            "hl_range, log_volume, ret_lag1min] × lag_minutes pasos"
+            "Los valores de 'lags' deben seguir el orden de cols_ordered, "
+            "repitiendo las 6 features por cada minuto de historia."
         ),
     }
